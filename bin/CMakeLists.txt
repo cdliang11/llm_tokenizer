@@ -1,0 +1,2 @@
+add_executable(tokenizer_main tokenizer_main.cc)
+target_link_libraries(tokenizer_main mnn_llm_tokenizer)
