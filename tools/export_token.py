@@ -15,20 +15,43 @@
 
 import base64
 import os
+import json
 import argparse
 import sentencepiece as spm
 
 from transformers import AutoTokenizer
 
 
+def has_model_file(directory, suffix='.model'):
+    for filename in os.listdir(directory):
+        if filename.endswith(suffix):
+            return directory + '/' + filename
+    return None
+
+
 class ExportToken:
-    def __init__(self, model_path, token_file, model_name) -> None:
+    def __init__(self, model_path, token_file, model_name, tokenzier_class=None) -> None:
         super().__init__()
-        tokenizer_model = os.path.join(model_path, "tokenizer.model")
-        if os.path.exists(tokenizer_model):
-            self.sp_model = spm.SentencePieceProcessor(model_file=tokenizer_model)
+        # get tokenizer_class for huggingface models
+        with open(os.path.join(model_path, "tokenizer_config.json"), 'r') as f:
+            tokenizer_config = json.load(f)
+        tokenizer_class = tokenizer_config.get('tokenizer_class')
+        if tokenizer_class in ["PreTrainedTokenizerFast", "PreTrainedTokenizer"]:
+            is_hf_tokenizer = True
         else:
-            self.sp_model = None
+            is_hf_tokenizer = False
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        self.sp_model = None
+        if not is_hf_tokenizer:
+            sp_model = has_model_file(model_path, '.model')
+            if os.path.exists(sp_model):
+                try:
+                    self.sp_model = spm.SentencePieceProcessor(model_file=sp_model)
+                    print("sentencepiece model is found")
+                except:
+                    print("sentencepiece model is not found")
+
         merge_txt = os.path.join(model_path, "merges.txt")
         if os.path.exists(merge_txt):
             self.merge_txt = merge_txt
@@ -36,8 +59,6 @@ class ExportToken:
             self.merge_txt = None
         self.token_file = token_file
         self.model_name = model_name
-
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
     def export_tokenizer(self):
         file_path = os.path.join(self.token_file, "tokenizer.txt")
@@ -80,6 +101,7 @@ class ExportToken:
                         fp.write(line)
         elif self.merge_txt is not None:
             # huggingface tokenizer
+            print("# huggingface tokenizer with merges.txt")
             merge_list = []
             vocab = self.tokenizer.get_vocab()
             vocab_list = ['<unk>' for i in range(len(vocab))]
@@ -99,6 +121,7 @@ class ExportToken:
                     fp.write(m)
         else:
             # huggingface tokenizer
+            print("# huggingface tokenizer")
             def unicode_to_byte(u: int):
                 if u >= 256 and u <= 288:
                     return u - 256
@@ -136,4 +159,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     export_token = ExportToken(args.path, args.token_file, args.model_name)
     export_token.export_tokenizer()
-
