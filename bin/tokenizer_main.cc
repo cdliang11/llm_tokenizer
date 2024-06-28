@@ -21,20 +21,20 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
     std::string tokenizer_path = argv[1];
-    std::unique_ptr<Tokenizer> tokenizer_(new Sentencepiece);
-    tokenizer_->load(tokenizer_path);
+    std::unique_ptr<Tokenizer> tokenizer(
+        Tokenizer::createTokenizer(tokenizer_path));
     const std::string system_str = "你好";
     // const std::string user_str = "<|endoftext|>";
     // const std::string query = "\n<|im_start|>system\n" + system_str + "<|im_end|>\n<|im_start|>\n" + user_str + "<|im_end|>\n<|im_start|>assistant\n";
     const std::string query = system_str + "\n";
     printf("query = %s\n", query.c_str());
-    auto tokens = tokenizer_->encode(query);
+    auto tokens = tokenizer->encode(query);
 
-    std::string decode_str;
+    std::string decode_str = "";
     printf("encode tokens = [ ");
     for (auto token : tokens) {
         printf("%d ", token);
-        decode_str += tokenizer_->decode(token);
+        decode_str += tokenizer->decode(token);
     }
     printf("]\n");
     printf("decode str = %s\n", decode_str.c_str());

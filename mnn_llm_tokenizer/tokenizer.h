@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TOKENIZER_hpp
-#define TOKENIZER_hpp
+#ifndef MNN_LLM_TOENIZER_TOKENIZER_H_
+#define MNN_LLM_TOENIZER_TOKENIZER_H_
 
 #include <vector>
 #include <memory>
@@ -25,19 +25,35 @@
 
 class Tokenizer {
 public:
+    static constexpr int MAGIC_NUMBER = 430;
+    enum TokenizerType {
+        SENTENCEPIECE = 0,
+        TIKTOIKEN = 1,
+        BERT = 2,
+        HUGGINGFACE = 3
+    };
     Tokenizer() = default;
     virtual ~Tokenizer() = default;
-    virtual bool load(const std::string& filename) = 0;
-    virtual std::vector<int> encode(const std::string& str) = 0;
+    static Tokenizer* createTokenizer(const std::string& filename);
+    bool is_stop(int token);
+    std::vector<int> encode(const std::string& str);
     virtual std::string decode(int id) = 0;
+protected:
+    virtual void load_special(std::ifstream& file);
+    virtual bool load_vocab(std::ifstream& file) = 0;
+    virtual void encode(const std::string& str, std::vector<int>& ids) = 0;
+    std::vector<int> special_tokens_;
+    std::vector<int> stop_tokens_;
+    std::vector<int> prefix_tokens_;
 };
 
 class Sentencepiece : public Tokenizer {
 public:
     Sentencepiece() = default;
-    virtual bool load(const std::string& filename) override;
-    virtual std::vector<int> encode(const std::string& str) override;
     virtual std::string decode(int id) override;
+protected:
+    virtual bool load_vocab(std::ifstream& file) override;
+    virtual void encode(const std::string& str, std::vector<int>& ids) override;
 private:
     enum ModelType {
         UNIGRAM = 1,
@@ -84,10 +100,10 @@ private:
 class Tiktoken : public Tokenizer {
 public:
     Tiktoken() = default;
-    virtual bool load(const std::string& filename) override;
-    virtual std::vector<int> encode(const std::string& str) override;
     virtual std::string decode(int id) override;
 protected:
+    virtual bool load_vocab(std::ifstream& file) override;
+    virtual void encode(const std::string& str, std::vector<int>& ids) override;
     std::unordered_map<std::string, int> encoder_;
     std::vector<std::string> decoder_;
 };
@@ -95,7 +111,8 @@ protected:
 class BertTokenizer : public Tiktoken {
 public:
     BertTokenizer() = default;
-    virtual std::vector<int> encode(const std::string& str) override;
+protected:
+    virtual void encode(const std::string& str, std::vector<int>& ids) override;
 private:
     std::vector<int> word_piece(const std::string& token);
 };
@@ -112,9 +129,10 @@ struct hash_pair_wstring {
 using BPERanks = std::unordered_map<std::pair<std::wstring, std::wstring>, int, hash_pair_wstring>;
 public:
     HuggingfaceTokenizer() = default;
-    virtual bool load(const std::string& filename) override;
-    virtual std::vector<int> encode(const std::string& str) override;
     virtual std::string decode(int id) override;
+protected:
+    virtual bool load_vocab(std::ifstream& file) override;
+    virtual void encode(const std::string& str, std::vector<int>& ids) override;
 private:
     void bpe(const std::wstring& token, const BPERanks& bpe_ranks, std::vector<std::wstring>* result);
     BPERanks bpe_ranks_;
@@ -124,4 +142,4 @@ private:
     std::vector<std::string> decoder_;
 };
 
-#endif // TOKENIZER_hpp
+#endif // MNN_LLM_TOENIZER_TOKENIZER_H_
